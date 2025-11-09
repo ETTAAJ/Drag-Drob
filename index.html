@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>لوحة مهام مع تعديل وحذف</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .dragging { opacity: 0.5; background-color: #e5e7eb; }
+    .dropzone-over { background-color: #dbeafe; border: 2px dashed #3b82f6; }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen py-10 font-arabic">
+  <div class="max-w-6xl mx-auto px-4">
+    <h1 class="text-4xl font-bold text-center text-gray-800 mb-10">لوحة المهام (Kanban)</h1>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <!-- To Do -->
+      <div class="bg-white rounded-lg shadow-lg p-6">
+        <h2 class="text-2xl font-semibold text-indigo-700 mb-4">للتنفيذ</h2>
+        <div id="todo" class="min-h-96 space-y-3"
+             ondrop="drop(event)" ondragover="allowDrop(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)">
+          <!-- المهام هنا -->
+        </div>
+        <div class="mt-4">
+          <input type="text" id="new-todo" placeholder="أضف مهمة جديدة..." 
+                 class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500 text-right">
+          <button onclick="addTask('todo')" 
+                  class="mt-2 w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700 transition">
+            أضف مهمة
+          </button>
+        </div>
+      </div>
+
+      <!-- Doing -->
+      <div class="bg-white rounded-lg shadow-lg p-6">
+        <h2 class="text-2xl font-semibold text-yellow-600 mb-4">جاري العمل</h2>
+        <div id="doing" class="min-h-96 space-y-3"
+             ondrop="drop(event)" ondragover="allowDrop(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)">
+        </div>
+      </div>
+
+      <!-- Done -->
+      <div class="bg-white rounded-lg shadow-lg p-6">
+        <h2 class="text-2xl font-semibold text-green-600 mb-4">مكتملة</h2>
+        <div id="done" class="min-h-96 space-y-3"
+             ondrop="drop(event)" ondragover="allowDrop(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Drag & Drop Functions
+    function allowDrop(ev) { ev.preventDefault(); }
+    function dragStart(ev) {
+      ev.dataTransfer.setData("text/plain", ev.target.id);
+      ev.target.classList.add("dragging");
+    }
+    function dragEnter(ev) {
+      ev.preventDefault();
+      ev.target.closest('.min-h-96')?.classList.add('dropzone-over');
+    }
+    function dragLeave(ev) {
+      ev.target.closest('.min-h-96')?.classList.remove('dropzone-over');
+    }
+    function drop(ev) {
+      ev.preventDefault();
+      const id = ev.dataTransfer.getData("text/plain");
+      const task = document.getElementById(id);
+      const dropzone = ev.target.closest('.min-h-96');
+      if (dropzone && task.classList.contains('draggable')) {
+        dropzone.appendChild(task);
+      }
+      document.querySelectorAll('.min-h-96').forEach(z => z.classList.remove('dropzone-over'));
+      task.classList.remove('dragging');
+    }
+
+    // إضافة مهمة جديدة
+    function addTask(columnId) {
+      const input = document.getElementById('new-todo');
+      const text = input.value.trim();
+      if (!text) return;
+
+      const taskId = 'task-' + Date.now();
+      const taskHTML = `
+        <div class="bg-gray-50 p-4 rounded border border-gray-300 draggable group" 
+             id="${taskId}" draggable="true" ondragstart="dragStart(event)">
+          <div class="flex items-center justify-between">
+            <p class="font-medium text-gray-800 flex-1" ondblclick="editTask(this)">${text}</p>
+            <div class="opacity-0 group-hover:opacity-100 transition flex gap-2">
+              <button onclick="editTask(this.previousElementSibling)" 
+                      class="text-blue-600 hover:text-blue-800 text-xl">✏️</button>
+              <button onclick="deleteTask('${taskId}')" 
+                      class="text-red-600 hover:text-red-800 text-xl">🗑️</button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      document.getElementById(columnId).insertAdjacentHTML('beforeend', taskHTML);
+      input.value = '';
+    }
+
+    // تعديل المهمة
+    function editTask(element) {
+      const oldText = element.textContent;
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = oldText;
+      input.className = 'w-full px-2 py-1 border border-indigo-500 rounded text-right';
+      
+      input.addEventListener('blur', () => {
+        const newText = input.value.trim() || oldText;
+        element.textContent = newText;
+        element.parentElement.parentElement.outerHTML = element.parentElement.parentElement.outerHTML; // refresh buttons
+      });
+
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') input.blur();
+        if (e.key === 'Escape') {
+          element.textContent = oldText;
+          input.replaceWith(element);
+        }
+      });
+
+      element.replaceWith(input);
+      input.focus();
+      input.select();
+    }
+
+    // حذف المهمة
+    function deleteTask(taskId) {
+      if (confirm('هل أنت متأكد أنك تريد حذف هذه المهمة؟')) {
+        document.getElementById(taskId)?.remove();
+      }
+    }
+
+    // جعل كل المهام قابلة للسحب
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('.draggable').forEach(task => {
+        task.addEventListener('dragstart', dragStart);
+      });
+    });
+  </script>
+</body>
+</html>
